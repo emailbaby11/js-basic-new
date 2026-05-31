@@ -1122,7 +1122,7 @@ footer p {
             <h3>기초 개념 익히기</h3>
             <span class="duration-badge">1~2주</span>
           </div>
-          <button class="card-toggle" aria-expanded="false">&#9660;</button>
+          <button type="button" class="card-toggle" aria-expanded="false">&#9660;</button>
         </div>
         <div class="card-body">
           <div class="card-body-inner">
@@ -1151,7 +1151,7 @@ footer p {
             <h3>재무제표 읽기</h3>
             <span class="duration-badge">2~4주</span>
           </div>
-          <button class="card-toggle" aria-expanded="false">&#9660;</button>
+          <button type="button" class="card-toggle" aria-expanded="false">&#9660;</button>
         </div>
         <div class="card-body">
           <div class="card-body-inner">
@@ -1180,7 +1180,7 @@ footer p {
             <h3>기술적 분석 기초</h3>
             <span class="duration-badge">2~4주</span>
           </div>
-          <button class="card-toggle" aria-expanded="false">&#9660;</button>
+          <button type="button" class="card-toggle" aria-expanded="false">&#9660;</button>
         </div>
         <div class="card-body">
           <div class="card-body-inner">
@@ -1209,7 +1209,7 @@ footer p {
             <h3>나만의 투자 전략 수립</h3>
             <span class="duration-badge">진행중</span>
           </div>
-          <button class="card-toggle" aria-expanded="false">&#9660;</button>
+          <button type="button" class="card-toggle" aria-expanded="false">&#9660;</button>
         </div>
         <div class="card-body">
           <div class="card-body-inner">
@@ -1238,7 +1238,7 @@ footer p {
             <h3>실전 연습 &amp; 습관 만들기</h3>
             <span class="duration-badge">진행중</span>
           </div>
-          <button class="card-toggle" aria-expanded="false">&#9660;</button>
+          <button type="button" class="card-toggle" aria-expanded="false">&#9660;</button>
         </div>
         <div class="card-body">
           <div class="card-body-inner">
@@ -1645,6 +1645,11 @@ footer p {
         var navHeight = document.getElementById('navbar').offsetHeight;
         var top = target.getBoundingClientRect().top + window.pageYOffset - navHeight - 20;
         window.scrollTo({ top: top, behavior: 'smooth' });
+        // 네비 링크로 이동 시 해당 섹션 내 요소들을 즉시 visible 처리
+        var animEls = target.querySelectorAll('.animate-on-scroll');
+        for (var j = 0; j < animEls.length; j++) {
+          animEls[j].classList.add('visible');
+        }
       });
     }
   }
@@ -1849,11 +1854,19 @@ footer p {
           observer.unobserve(entries[i].target);
         }
       }
-    }, { threshold: 0.1 });
+    }, { threshold: 0.05 });
 
     for (var j = 0; j < targets.length; j++) {
       observer.observe(targets[j]);
     }
+
+    // 2초 후에도 visible이 안 붙은 요소들 강제 표시 (보험)
+    setTimeout(function () {
+      var hidden = document.querySelectorAll('.animate-on-scroll:not(.visible)');
+      for (var k = 0; k < hidden.length; k++) {
+        hidden[k].classList.add('visible');
+      }
+    }, 2000);
   }
 
 })();

@@ -67,6 +67,11 @@
         var navHeight = document.getElementById('navbar').offsetHeight;
         var top = target.getBoundingClientRect().top + window.pageYOffset - navHeight - 20;
         window.scrollTo({ top: top, behavior: 'smooth' });
+        // 네비 링크로 이동 시 해당 섹션 내 요소들을 즉시 visible 처리
+        var animEls = target.querySelectorAll('.animate-on-scroll');
+        for (var j = 0; j < animEls.length; j++) {
+          animEls[j].classList.add('visible');
+        }
       });
     }
   }
@@ -271,11 +276,19 @@
           observer.unobserve(entries[i].target);
         }
       }
-    }, { threshold: 0.1 });
+    }, { threshold: 0.05 });
 
     for (var j = 0; j < targets.length; j++) {
       observer.observe(targets[j]);
     }
+
+    // 2초 후에도 visible이 안 붙은 요소들 강제 표시 (보험)
+    setTimeout(function () {
+      var hidden = document.querySelectorAll('.animate-on-scroll:not(.visible)');
+      for (var k = 0; k < hidden.length; k++) {
+        hidden[k].classList.add('visible');
+      }
+    }, 2000);
   }
 
 })();
