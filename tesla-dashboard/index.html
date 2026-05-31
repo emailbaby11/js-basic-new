@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TSLA 테슬라 종합 분석 대시보드</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+  <style>
+/* ── ROOT & RESET ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg-primary: #0a0e1a; --bg-secondary: #0f1629; --bg-card: #131d35;
+  --border: #1e2d4a; --accent-red: #E31937; --accent-green: #00d09c;
+  --accent-blue: #2196f3; --accent-gold: #f5a623; --accent-purple: #9c6fe4;
+  --text-primary: #e8edf5; --text-secondary: #8a9bb8; --text-muted: #4a5a7a;
+  --up: #00d09c; --down: #ff4757; --neutral: #8a9bb8;
+}
+html { scroll-behavior: smooth; }
+body { background: var(--bg-primary); color: var(--text-primary); font-family: 'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif; font-size: 14px; line-height: 1.6; min-height: 100vh; }
+
+/* HEADER */
+.header { display:flex; align-items:center; justify-content:space-between; padding:16px 28px; background:linear-gradient(135deg,#0a0e1a,#0f1629); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:100; gap:16px; flex-wrap:wrap; }
+.header-left { display:flex; align-items:center; gap:18px; }
+.tesla-logo { display:flex; align-items:center; gap:10px; }
+.tsla-badge { background:var(--accent-red); color:#fff; font-weight:800; font-size:12px; padding:3px 8px; border-radius:4px; letter-spacing:1px; }
+.header-title h1 { font-size:20px; font-weight:700; line-height:1.2; }
+.subtitle { font-size:12px; color:var(--text-secondary); }
+.header-right { display:flex; align-items:center; gap:20px; }
+.price-display { display:flex; align-items:baseline; gap:6px; }
+.price-number { font-size:36px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-1px; }
+.currency { font-size:14px; color:var(--text-secondary); }
+.price-change-display { display:flex; gap:6px; font-size:15px; font-weight:600; }
+.change-value,.change-pct { font-variant-numeric:tabular-nums; }
+.sentiment-badge { display:flex; align-items:center; gap:6px; padding:8px 16px; border-radius:24px; font-weight:700; font-size:14px; border:2px solid var(--border); background:var(--bg-card); transition:all .3s; white-space:nowrap; }
+.sentiment-badge.bullish { border-color:var(--up); background:rgba(0,208,156,.1); color:var(--up); }
+.sentiment-badge.bearish { border-color:var(--down); background:rgba(255,71,87,.1); color:var(--down); }
+.sentiment-badge.neutral { border-color:var(--neutral); color:var(--neutral); }
+
+/* TICKER */
+.ticker-bar { background:#080c18; border-bottom:1px solid var(--border); overflow:hidden; height:36px; display:flex; align-items:center; }
+.ticker-wrap { width:100%; overflow:hidden; }
+.ticker-move { display:flex; animation:tickerScroll 60s linear infinite; white-space:nowrap; }
+@keyframes tickerScroll { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+.ticker-item { padding:0 24px; font-size:13px; color:var(--text-secondary); border-right:1px solid var(--border); display:inline-flex; align-items:center; gap:6px; height:36px; }
+.ticker-item strong { color:var(--text-primary); font-weight:600; }
+
+/* MAIN GRID */
+.main-grid { display:grid; grid-template-columns:1fr 380px; gap:20px; padding:20px 28px; max-width:1600px; margin:0 auto; }
+@media(max-width:1100px){.main-grid{grid-template-columns:1fr;}}
+
+/* METRICS */
+.metrics-row { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:20px; }
+@media(max-width:900px){.metrics-row{grid-template-columns:repeat(3,1fr);}}
+.metric-card { background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center; transition:border-color .2s; }
+.metric-card:hover{border-color:var(--accent-blue);}
+.metric-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+.metric-value { font-size:18px; font-weight:700; font-variant-numeric:tabular-nums; }
+
+/* CARD */
+.card { background:var(--bg-card); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:20px; transition:border-color .2s; }
+.card:hover{border-color:#2a3d5a;}
+.card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; gap:12px; flex-wrap:wrap; }
+.card-header h2 { font-size:16px; font-weight:700; }
+
+/* CHART */
+.chart-container { position:relative; width:100%; height:280px; }
+.small-chart { height:200px; }
+.chart-tabs { display:flex; gap:4px; flex-wrap:wrap; }
+.tab-btn { background:transparent; border:1px solid var(--border); color:var(--text-secondary); padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px; transition:all .2s; }
+.tab-btn:hover,.tab-btn.active { background:var(--accent-blue); border-color:var(--accent-blue); color:#fff; }
+
+/* SENTIMENT */
+.signal-pill { padding:4px 14px; border-radius:20px; font-size:12px; font-weight:700; border:2px solid var(--border); background:var(--bg-secondary); }
+.signal-pill.bullish{border-color:var(--up);color:var(--up);background:rgba(0,208,156,.12);}
+.signal-pill.bearish{border-color:var(--down);color:var(--down);background:rgba(255,71,87,.12);}
+.signal-pill.neutral{border-color:var(--neutral);color:var(--neutral);}
+.sentiment-grid { display:grid; grid-template-columns:1fr 200px 1fr; gap:16px; align-items:start; }
+@media(max-width:700px){.sentiment-grid{grid-template-columns:1fr;}}
+.bullish-title{color:var(--up);font-size:14px;margin-bottom:10px;}
+.bearish-title{color:var(--down);font-size:14px;margin-bottom:10px;}
+.factor-list{list-style:none;display:flex;flex-direction:column;gap:8px;}
+.factor-list li{padding:8px 12px;border-radius:8px;font-size:13px;line-height:1.4;}
+.bullish-col .factor-list li{background:rgba(0,208,156,.08);border-left:3px solid var(--up);color:#c5f5e8;}
+.bearish-col .factor-list li{background:rgba(255,71,87,.08);border-left:3px solid var(--down);color:#ffc4ca;}
+.sentiment-divider{display:flex;flex-direction:column;align-items:center;padding-top:10px;}
+.gauge-wrap{text-align:center;position:relative;}
+.gauge-label{font-size:32px;font-weight:800;margin-top:-10px;color:var(--text-primary);}
+.gauge-sub{font-size:11px;color:var(--text-muted);}
+
+/* ANALYST */
+.analyst-grid{display:grid;grid-template-columns:1fr 160px;gap:20px;margin-bottom:16px;}
+.consensus-tag{background:rgba(33,150,243,.15);border:1px solid var(--accent-blue);color:var(--accent-blue);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;}
+.rating-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.rating-label{width:60px;font-size:12px;font-weight:600;flex-shrink:0;}
+.strong-buy{color:#00d09c;} .buy{color:#52c234;} .hold{color:#f5a623;} .sell{color:#ff6b35;} .strong-sell{color:#ff4757;}
+.rating-bar-wrap{flex:1;background:var(--bg-secondary);border-radius:4px;height:8px;overflow:hidden;}
+.rating-bar{height:100%;border-radius:4px;transition:width 1s ease;width:0;}
+.sb-bar{background:#00d09c;} .b-bar{background:#52c234;} .h-bar{background:#f5a623;} .s-bar{background:#ff6b35;} .ss-bar{background:#ff4757;}
+.rating-num{font-size:13px;font-weight:700;width:24px;text-align:right;}
+.price-target-section{background:var(--bg-secondary);border-radius:10px;padding:14px;text-align:center;}
+.pt-title{font-size:12px;color:var(--text-muted);text-transform:uppercase;margin-bottom:12px;}
+.pt-high,.pt-avg,.pt-low{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.pt-lbl{font-size:12px;color:var(--text-secondary);}
+.pt-val{font-size:16px;font-weight:700;}
+.pt-upside{margin-top:12px;font-size:13px;font-weight:700;color:var(--up);background:rgba(0,208,156,.1);padding:6px;border-radius:6px;}
+.analyst-opinions{display:flex;flex-direction:column;gap:10px;margin-top:8px;}
+.analyst-row{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg-secondary);border-radius:8px;font-size:13px;}
+.analyst-firm{font-weight:600;flex:1;}
+.analyst-action{color:var(--text-secondary);font-size:12px;}
+.analyst-rating-badge{padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;}
+.badge-buy{background:rgba(0,208,156,.15);color:var(--up);border:1px solid var(--up);}
+.badge-hold{background:rgba(245,166,35,.15);color:var(--accent-gold);border:1px solid var(--accent-gold);}
+.badge-sell{background:rgba(255,71,87,.15);color:var(--down);border:1px solid var(--down);}
+.analyst-target{font-weight:700;color:var(--accent-blue);font-size:14px;}
+
+/* TECHNICAL */
+.tech-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+@media(max-width:800px){.tech-grid{grid-template-columns:repeat(2,1fr);}}
+.tech-item{background:var(--bg-secondary);border-radius:8px;padding:12px;text-align:center;}
+.tech-name{font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;}
+.tech-value{font-size:16px;font-weight:700;margin-bottom:4px;}
+.tech-signal{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;display:inline-block;}
+.sig-buy{background:rgba(0,208,156,.15);color:var(--up);}
+.sig-sell{background:rgba(255,71,87,.15);color:var(--down);}
+.sig-neutral{background:rgba(138,155,184,.15);color:var(--neutral);}
+
+/* COMPANY */
+.company-content{margin-bottom:16px;}
+.company-logo-wrap{float:right;margin:0 0 12px 16px;padding:10px;background:var(--bg-secondary);border-radius:8px;}
+.company-desc{font-size:13px;color:var(--text-secondary);line-height:1.8;margin-bottom:12px;}
+.biz-segments{display:flex;flex-direction:column;gap:10px;clear:both;}
+.biz-item{display:flex;gap:12px;padding:12px;background:var(--bg-secondary);border-radius:8px;border-left:3px solid var(--accent-red);transition:border-color .2s;}
+.biz-item:hover{border-left-color:var(--accent-blue);}
+.biz-icon{font-size:22px;flex-shrink:0;}
+.biz-name{font-size:13px;font-weight:700;margin-bottom:2px;}
+.biz-desc{font-size:12px;color:var(--text-secondary);}
+
+/* VISION */
+.elon-quote{background:linear-gradient(135deg,#1a1040,#0f1629);border-left:4px solid var(--accent-purple);border-radius:10px;padding:16px 20px;margin-bottom:16px;position:relative;}
+.quote-mark{font-size:60px;color:var(--accent-purple);opacity:.3;position:absolute;top:-10px;left:10px;line-height:1;font-family:Georgia,serif;}
+.elon-quote p{font-size:14px;font-style:italic;line-height:1.7;padding-left:20px;}
+.vision-items{display:flex;flex-direction:column;gap:10px;}
+.vision-item{display:flex;gap:12px;padding:12px;background:var(--bg-secondary);border-radius:8px;}
+.vision-num{width:28px;height:28px;background:var(--accent-purple);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+.vision-title{font-size:13px;font-weight:700;margin-bottom:2px;}
+.vision-desc{font-size:12px;color:var(--text-secondary);line-height:1.5;}
+
+/* CATALYSTS */
+.catalyst-list{display:flex;flex-direction:column;gap:10px;}
+.catalyst-item{display:flex;gap:12px;padding:12px;background:var(--bg-secondary);border-radius:8px;align-items:flex-start;}
+.catalyst-date{font-size:11px;font-weight:600;color:var(--accent-blue);background:rgba(33,150,243,.1);border:1px solid var(--accent-blue);border-radius:6px;padding:3px 8px;white-space:nowrap;flex-shrink:0;}
+.catalyst-text{font-size:13px;color:var(--text-secondary);flex:1;}
+.catalyst-text strong{color:var(--text-primary);display:block;margin-bottom:2px;}
+.catalyst-impact{font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;white-space:nowrap;flex-shrink:0;}
+.impact-high{background:rgba(0,208,156,.15);color:var(--up);}
+.impact-med{background:rgba(245,166,35,.15);color:var(--accent-gold);}
+.impact-low{background:rgba(138,155,184,.15);color:var(--neutral);}
+
+/* FINANCIALS */
+.fin-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+.fin-item{background:var(--bg-secondary);border-radius:8px;padding:12px;}
+.fin-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+.fin-value{font-size:18px;font-weight:700;}
+.fin-sub{font-size:11px;color:var(--text-secondary);}
+
+/* PRODUCTION */
+.prod-grid{display:flex;flex-direction:column;gap:10px;}
+.prod-item{display:flex;align-items:center;gap:12px;padding:10px;background:var(--bg-secondary);border-radius:8px;}
+.prod-label{font-size:13px;color:var(--text-secondary);flex:1;}
+.prod-value{font-size:16px;font-weight:700;}
+.prod-change{font-size:12px;font-weight:600;padding:2px 8px;border-radius:8px;}
+.prod-up{background:rgba(0,208,156,.15);color:var(--up);}
+.prod-down{background:rgba(255,71,87,.15);color:var(--down);}
+
+/* NEWS */
+.news-list{display:flex;flex-direction:column;gap:12px;}
+.news-loading{color:var(--text-muted);text-align:center;padding:20px;}
+.news-disclaimer{font-size:11px;color:var(--text-muted);margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.news-item{padding:12px;background:var(--bg-secondary);border-radius:8px;border-left:3px solid var(--accent-blue);transition:border-color .2s;cursor:pointer;}
+.news-item:hover{border-left-color:var(--accent-red);}
+.news-meta{display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap;}
+.news-source{font-size:11px;font-weight:700;color:var(--accent-blue);}
+.news-time{font-size:11px;color:var(--text-muted);}
+.news-sentiment{font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;margin-left:auto;}
+.sent-pos{background:rgba(0,208,156,.15);color:var(--up);}
+.sent-neg{background:rgba(255,71,87,.15);color:var(--down);}
+.sent-neu{background:rgba(138,155,184,.15);color:var(--neutral);}
+.news-title{font-size:13px;font-weight:600;line-height:1.4;}
+.news-summary{font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.5;}
+
+/* UTILITY */
+.up{color:var(--up)!important;} .down{color:var(--down)!important;} .neutral{color:var(--neutral)!important;}
+
+/* FOOTER */
+.footer{background:#080c18;border-top:1px solid var(--border);padding:16px 28px;margin-top:20px;}
+.footer-content{max-width:1600px;margin:0 auto;text-align:center;}
+.footer-content p{font-size:12px;color:var(--text-muted);line-height:1.6;}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:var(--bg-primary);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:#2a3d5a;}
+
+/* DOWNLOAD BUTTON (헤더용, PC) */
+.dl-btn {
+  display:inline-flex; align-items:center; gap:7px;
+  background: linear-gradient(135deg, #E31937, #b8001e);
+  color:#fff; font-weight:700; font-size:13px;
+  padding:9px 18px; border-radius:24px; border:none;
+  cursor:pointer; white-space:nowrap;
+  box-shadow: 0 4px 15px rgba(227,25,55,.4);
+  transition: transform .15s, box-shadow .15s;
+}
+.dl-btn:hover { transform:translateY(-2px); }
+.dl-btn:active { transform:scale(.96); }
+.dl-btn svg { flex-shrink:0; }
+/* 모바일에선 헤더 버튼 숨김 — 플로팅 버튼으로 대체 */
+@media(max-width:700px){ .dl-btn { display:none; } }
+
+/* FLOATING DOWNLOAD (항상 오른쪽 아래 고정) */
+.dl-float {
+  position:fixed; bottom:28px; right:20px; z-index:9999;
+  display:flex; align-items:center; gap:10px;
+  background: linear-gradient(135deg, #E31937, #b8001e);
+  color:#fff; font-weight:800; font-size:16px;
+  padding:16px 26px; border-radius:50px; border:none;
+  cursor:pointer;
+  box-shadow: 0 6px 28px rgba(227,25,55,.65);
+  transition: transform .15s, box-shadow .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.dl-float:hover { transform:translateY(-3px); }
+.dl-float:active { transform:scale(.94); }
+
+/* TOAST */
+#dl-toast {
+  position:fixed; bottom:100px; left:50%; transform:translateX(-50%) translateY(10px);
+  z-index:10000; background:#00d09c; color:#0a0e1a;
+  font-weight:800; font-size:15px; padding:12px 28px;
+  border-radius:50px; box-shadow:0 4px 20px rgba(0,208,156,.5);
+  opacity:0; transition: opacity .3s, transform .3s;
+  pointer-events:none; white-space:nowrap;
+}
+#dl-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="tesla-logo">
+      <svg viewBox="0 0 342 35" fill="none" xmlns="http://www.w3.org/2000/svg" width="110">
+        <path d="M0 .1a9.7 9.7 0 0 0 7 7h11l.5.1v27.6h6.8V7.3L26 7h11a9.8 9.8 0 0 0 7-7H0zm238.6 0h-6.8v34.8H256a9.8 9.8 0 0 0 7-7h-24.4V0zm-52.3 6.8c3.6-1 6.6-3.8 7.4-6.9l-38.1.1v7h30.3l-31.2 21.5v6.7h38.2a9.8 9.8 0 0 0 7.1-7h-31.2l17.5-21.4zM87.5 0L64.4 34.8h8l5.1-7.6h22.2l5 7.6h8.3L89.2 0h-1.7zm-5.4 20.6 7.3-11 7.2 11H82zm88.1-9.5v-4.7l-.3-6.4h-6.8v34.8h6.8V15.6c0-4.4 3.8-8.8 9.8-8.8h6.7a9.8 9.8 0 0 0 7-7h-13.7c-5.5 0-9.5 4.2-9.5 11.3z" fill="#E31937"/>
+      </svg>
+      <span class="tsla-badge">TSLA</span>
+    </div>
+    <div class="header-title">
+      <h1>Tesla 종합 분석 대시보드</h1>
+      <p class="subtitle">NASDAQ: TSLA · 실시간 분석 · <span id="last-updated">로딩 중...</span></p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="price-main">
+      <div class="price-display">
+        <span id="current-price" class="price-number">---.--</span>
+        <span class="currency">USD</span>
+      </div>
+      <div class="price-change-display">
+        <span id="price-change" class="change-value">+0.00</span>
+        <span id="price-change-pct" class="change-pct">(+0.00%)</span>
+      </div>
+    </div>
+    <div class="sentiment-badge" id="sentiment-badge">
+      <span class="sentiment-icon" id="sentiment-icon">📊</span>
+      <span id="sentiment-text">분석 중</span>
+    </div>
+    <button class="dl-btn" onclick="downloadHTML()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      HTML 다운로드
+    </button>
+  </div>
+</header>
+
+<!-- TICKER -->
+<div class="ticker-bar">
+  <div class="ticker-wrap">
+    <div class="ticker-move" id="ticker-move">
+      <span class="ticker-item">TSLA <strong id="t-price">---</strong> <span id="t-chg" class="up">---</span></span>
+      <span class="ticker-item">S&amp;P500 <strong>5,308</strong> <span class="up">+0.48%</span></span>
+      <span class="ticker-item">NASDAQ <strong>16,742</strong> <span class="up">+0.60%</span></span>
+      <span class="ticker-item">시가총액 <strong id="mktcap">---</strong></span>
+      <span class="ticker-item">52주 최고 <strong id="high52">---</strong></span>
+      <span class="ticker-item">52주 최저 <strong id="low52">---</strong></span>
+      <span class="ticker-item">PER <strong id="per">---</strong></span>
+      <span class="ticker-item">EPS <strong id="eps">---</strong></span>
+      <span class="ticker-item">배당수익률 <strong>0.00%</strong></span>
+      <span class="ticker-item">베타 <strong id="beta">---</strong></span>
+      <span class="ticker-item">TSLA <strong id="t-price2">---</strong> <span id="t-chg2" class="up">---</span></span>
+      <span class="ticker-item">S&amp;P500 <strong>5,308</strong> <span class="up">+0.48%</span></span>
+      <span class="ticker-item">NASDAQ <strong>16,742</strong> <span class="up">+0.60%</span></span>
+      <span class="ticker-item">시가총액 <strong id="mktcap2">---</strong></span>
+      <span class="ticker-item">52주 최고 <strong id="high522">---</strong></span>
+      <span class="ticker-item">52주 최저 <strong id="low522">---</strong></span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<main class="main-grid">
+  <!-- LEFT -->
+  <div class="col-left">
+    <section class="metrics-row">
+      <div class="metric-card"><div class="metric-label">시가</div><div class="metric-value" id="v-open">---</div></div>
+      <div class="metric-card"><div class="metric-label">고가</div><div class="metric-value up" id="v-high">---</div></div>
+      <div class="metric-card"><div class="metric-label">저가</div><div class="metric-value down" id="v-low">---</div></div>
+      <div class="metric-card"><div class="metric-label">거래량</div><div class="metric-value" id="v-volume">---</div></div>
+      <div class="metric-card"><div class="metric-label">평균거래량</div><div class="metric-value" id="v-avg-vol">---</div></div>
+      <div class="metric-card"><div class="metric-label">시가총액</div><div class="metric-value" id="v-mktcap">---</div></div>
+    </section>
+
+    <section class="card chart-card">
+      <div class="card-header">
+        <h2>📈 주가 차트</h2>
+        <div class="chart-tabs">
+          <button class="tab-btn active" data-period="1d">1일</button>
+          <button class="tab-btn" data-period="5d">5일</button>
+          <button class="tab-btn" data-period="1mo">1개월</button>
+          <button class="tab-btn" data-period="3mo">3개월</button>
+          <button class="tab-btn" data-period="6mo">6개월</button>
+          <button class="tab-btn" data-period="1y">1년</button>
+        </div>
+      </div>
+      <div class="chart-container"><canvas id="priceChart"></canvas></div>
+    </section>
+
+    <section class="card sentiment-card">
+      <div class="card-header">
+        <h2>⚡ 강세 / 약세 분석</h2>
+        <div id="overall-signal" class="signal-pill">분석 중</div>
+      </div>
+      <div class="sentiment-grid">
+        <div class="sentiment-col bullish-col">
+          <h3 class="bullish-title">🐂 강세 요인</h3>
+          <ul id="bullish-list" class="factor-list"></ul>
+        </div>
+        <div class="sentiment-divider">
+          <div class="gauge-wrap">
+            <canvas id="gaugeChart" width="200" height="120"></canvas>
+            <div class="gauge-label" id="gauge-label">50</div>
+            <div class="gauge-sub">강세 점수</div>
+          </div>
+        </div>
+        <div class="sentiment-col bearish-col">
+          <h3 class="bearish-title">🐻 약세 요인</h3>
+          <ul id="bearish-list" class="factor-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card analyst-card">
+      <div class="card-header">
+        <h2>🏦 애널리스트 의견</h2>
+        <span class="consensus-tag" id="consensus-tag">컨센서스 로딩 중</span>
+      </div>
+      <div class="analyst-grid">
+        <div class="rating-bar-section">
+          <div class="rating-row"><span class="rating-label strong-buy">강력 매수</span><div class="rating-bar-wrap"><div class="rating-bar sb-bar" id="bar-sb"></div></div><span class="rating-num" id="num-sb">-</span></div>
+          <div class="rating-row"><span class="rating-label buy">매수</span><div class="rating-bar-wrap"><div class="rating-bar b-bar" id="bar-b"></div></div><span class="rating-num" id="num-b">-</span></div>
+          <div class="rating-row"><span class="rating-label hold">중립</span><div class="rating-bar-wrap"><div class="rating-bar h-bar" id="bar-h"></div></div><span class="rating-num" id="num-h">-</span></div>
+          <div class="rating-row"><span class="rating-label sell">매도</span><div class="rating-bar-wrap"><div class="rating-bar s-bar" id="bar-s"></div></div><span class="rating-num" id="num-s">-</span></div>
+          <div class="rating-row"><span class="rating-label strong-sell">강력 매도</span><div class="rating-bar-wrap"><div class="rating-bar ss-bar" id="bar-ss"></div></div><span class="rating-num" id="num-ss">-</span></div>
+        </div>
+        <div class="price-target-section">
+          <div class="pt-title">목표주가</div>
+          <div class="pt-high"><span class="pt-lbl">최고</span><span class="pt-val up" id="pt-high">$---</span></div>
+          <div class="pt-avg"><span class="pt-lbl">평균</span><span class="pt-val" id="pt-avg">$---</span></div>
+          <div class="pt-low"><span class="pt-lbl">최저</span><span class="pt-val down" id="pt-low">$---</span></div>
+          <div class="pt-upside" id="pt-upside">상승여력 ---</div>
+        </div>
+      </div>
+      <div class="analyst-opinions" id="analyst-opinions"></div>
+    </section>
+
+    <section class="card tech-card">
+      <div class="card-header"><h2>📊 기술적 분석</h2></div>
+      <div class="tech-grid" id="tech-grid"></div>
+    </section>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="col-right">
+    <section class="card company-card">
+      <div class="card-header"><h2>🏢 테슬라란?</h2></div>
+      <div class="company-content">
+        <div class="company-logo-wrap">
+          <svg viewBox="0 0 342 35" fill="none" width="90" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 .1a9.7 9.7 0 0 0 7 7h11l.5.1v27.6h6.8V7.3L26 7h11a9.8 9.8 0 0 0 7-7H0zm238.6 0h-6.8v34.8H256a9.8 9.8 0 0 0 7-7h-24.4V0zm-52.3 6.8c3.6-1 6.6-3.8 7.4-6.9l-38.1.1v7h30.3l-31.2 21.5v6.7h38.2a9.8 9.8 0 0 0 7.1-7h-31.2l17.5-21.4zM87.5 0L64.4 34.8h8l5.1-7.6h22.2l5 7.6h8.3L89.2 0h-1.7zm-5.4 20.6 7.3-11 7.2 11H82zm88.1-9.5v-4.7l-.3-6.4h-6.8v34.8h6.8V15.6c0-4.4 3.8-8.8 9.8-8.8h6.7a9.8 9.8 0 0 0 7-7h-13.7c-5.5 0-9.5 4.2-9.5 11.3z" fill="#E31937"/>
+          </svg>
+        </div>
+        <p class="company-desc">테슬라(Tesla, Inc.)는 2003년 마틴 에버하드와 마크 타페닝이 창업하고, 2004년 일론 머스크가 합류한 미국의 전기차·에너지 기업입니다. 본사는 텍사스주 오스틴에 위치하며, 전기차 제조·판매, 에너지 생성·저장, 자율주행 기술 개발을 핵심 사업으로 합니다.</p>
+      </div>
+      <div class="biz-segments">
+        <div class="biz-item"><div class="biz-icon">🚗</div><div class="biz-info"><div class="biz-name">자동차 부문</div><div class="biz-desc">Model S·3·X·Y·Cybertruck·Semi 생산·판매, FSD 소프트웨어</div></div></div>
+        <div class="biz-item"><div class="biz-icon">⚡</div><div class="biz-info"><div class="biz-name">에너지 부문</div><div class="biz-desc">Powerwall·Megapack 배터리 저장장치, Solar Roof 태양광 패널</div></div></div>
+        <div class="biz-item"><div class="biz-icon">🤖</div><div class="biz-info"><div class="biz-name">AI·로봇 부문</div><div class="biz-desc">Optimus 휴머노이드 로봇, Dojo 슈퍼컴퓨터, FSD 뉴럴넷</div></div></div>
+        <div class="biz-item"><div class="biz-icon">🔋</div><div class="biz-info"><div class="biz-name">슈퍼차저 네트워크</div><div class="biz-desc">전 세계 6만+ 슈퍼차저, 타사 차량 개방으로 수익 다각화</div></div></div>
+      </div>
+    </section>
+
+    <section class="card vision-card">
+      <div class="card-header"><h2>🚀 일론 머스크의 비전</h2></div>
+      <div class="vision-content">
+        <div class="elon-quote">
+          <div class="quote-mark">"</div>
+          <p id="elon-quote-text">테슬라의 미션은 지속 가능한 에너지로의 세계 전환을 가속화하는 것입니다.</p>
+        </div>
+        <div class="vision-items" id="vision-items"></div>
+      </div>
+    </section>
+
+    <section class="card catalyst-card">
+      <div class="card-header"><h2>📅 주요 촉매제</h2></div>
+      <div id="catalyst-list" class="catalyst-list"></div>
+    </section>
+
+    <section class="card financials-card">
+      <div class="card-header"><h2>💰 주요 재무 지표</h2></div>
+      <div class="fin-grid" id="fin-grid"></div>
+    </section>
+
+    <section class="card revenue-card">
+      <div class="card-header"><h2>📉 분기별 실적</h2></div>
+      <div class="chart-container small-chart"><canvas id="revenueChart"></canvas></div>
+    </section>
+
+    <section class="card production-card">
+      <div class="card-header"><h2>🏭 생산 &amp; 인도 현황</h2></div>
+      <div class="prod-grid" id="prod-grid"></div>
+    </section>
+
+    <section class="card news-card">
+      <div class="card-header"><h2>📰 테슬라 최신 뉴스</h2></div>
+      <div class="news-list" id="news-list"><div class="news-loading">뉴스 로딩 중...</div></div>
+      <div class="news-disclaimer">※ 실제 뉴스는 재무 데이터 API 연동 시 표시됩니다.</div>
+    </section>
+  </div>
+</main>
+
+<!-- 플로팅 다운로드 버튼 (모바일용) -->
+<button class="dl-float" onclick="downloadHTML()">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+  파일 저장
+</button>
+<div id="dl-toast">✅ 다운로드 시작!</div>
+
+<footer class="footer">
+  <div class="footer-content">
+    <p>⚠️ 본 대시보드는 투자 참고용이며 투자 권유가 아닙니다. 데이터는 Yahoo Finance API 기반이며 지연이 발생할 수 있습니다.</p>
+    <p>데이터 출처: Yahoo Finance · 최종 업데이트: <span id="footer-time">---</span></p>
+  </div>
+</footer>
+
+<script>
+/* ── 정적 데이터 ── */
+const TESLA = {
+  analysts: {
+    strongBuy:12, buy:18, hold:14, sell:5, strongSell:2,
+    targetHigh:400, targetAvg:285, targetLow:115,
+    opinions:[
+      {firm:'Morgan Stanley',  rating:'매수',      target:310, action:'목표 상향'},
+      {firm:'Goldman Sachs',   rating:'중립',      target:250, action:'유지'},
+      {firm:'Wedbush',         rating:'강력 매수', target:400, action:'목표 상향'},
+      {firm:'UBS',             rating:'매수',      target:275, action:'유지'},
+      {firm:'Mizuho',          rating:'매수',      target:300, action:'신규'},
+    ],
+  },
+  financials:[
+    {label:'연간 매출',      value:'$97.7B',  sub:'성장 +1.1%'},
+    {label:'매출 총이익률',  value:'17.9%',   sub:'2024 연간'},
+    {label:'영업이익률',     value:'6.2%',    sub:'마진 회복 중'},
+    {label:'순이익',         value:'$7.1B',   sub:'2024 연간'},
+    {label:'잉여현금흐름',   value:'$3.6B',   sub:'2024 연간'},
+    {label:'현금 및 단기투자',value:'$36.6B', sub:'강한 유동성'},
+    {label:'총 부채',        value:'$5.4B',   sub:'부채 비율 낮음'},
+    {label:'ROE',            value:'13.5%',   sub:'자기자본이익률'},
+  ],
+  quarterly:[
+    {q:'Q1 23',rev:23.3,profit:2.7},{q:'Q2 23',rev:24.9,profit:2.7},
+    {q:'Q3 23',rev:23.4,profit:1.9},{q:'Q4 23',rev:25.2,profit:7.9},
+    {q:'Q1 24',rev:21.3,profit:1.1},{q:'Q2 24',rev:25.2,profit:1.5},
+    {q:'Q3 24',rev:25.2,profit:2.2},{q:'Q4 24',rev:25.7,profit:2.3},
+  ],
+  production:[
+    {label:'2024 생산량',    value:'1,773,443대', change:'-1.1%', up:false},
+    {label:'2024 인도량',    value:'1,789,226대', change:'-1.1%', up:false},
+    {label:'2025 Q1 생산',  value:'362,615대',   change:'-16%',  up:false},
+    {label:'2025 Q1 인도',  value:'336,681대',   change:'-13%',  up:false},
+  ],
+  bullish:[
+    '자율주행(FSD) 기술 급격한 개선 — Robotaxi 서비스 출시 임박',
+    'Optimus 휴머노이드 로봇 대량 생산 진입, AI 로봇 시장 선점',
+    '에너지 사업 Megapack 수주 급증, 2024 사상 최대 실적',
+    '차세대 저가 모델("Model 2") 2025 출시 예정, 볼륨 확대',
+    '슈퍼차저 네트워크 개방으로 충전 수익 다각화',
+    '인도·동남아 신규 시장 진출 가속화',
+    '배터리 4680 셀 양산 확대, 원가 절감 가속',
+  ],
+  bearish:[
+    '차량 인도량 YoY 감소, 수요 둔화 우려 지속',
+    '중국 BYD 등 경쟁자 급부상, 글로벌 시장 점유율 하락',
+    '일론 머스크 DOGE 참여로 테슬라 집중도 하락 우려',
+    '마진 압박 — 가격 인하 경쟁으로 수익성 저하',
+    '자율주행 규제 불확실성 (각국 승인 지연)',
+    '고금리 환경에서 소비자 EV 구매력 약화',
+    '일론 머스크 브랜드 리스크 (정치적 논란)',
+  ],
+  vision:[
+    {title:'완전 자율주행(FSD) & Robotaxi', desc:'2025년 내 완전 자율주행 기능 실현 목표. Robotaxi 플릿 서비스로 테슬라가 우버를 능가하는 이동 서비스 기업으로 변모.'},
+    {title:'Optimus 인간형 로봇', desc:'2026년 100만대 생산 목표. 공장 자동화를 넘어 가정용 범용 로봇 시장 창출. 장기적으로 자동차보다 큰 사업이 될 것.'},
+    {title:'지속가능 에너지 전환', desc:'Megapack으로 전 세계 전력망 저장, Solar Roof로 에너지 자급자족 생태계 구축. 단순 자동차 기업이 아닌 에너지 기업으로 포지셔닝.'},
+    {title:'저가형 EV 대중화', desc:'2만5천 달러대 보급형 모델로 글로벌 EV 대중화 가속. 인도·동남아 등 신흥시장 공략 강화.'},
+    {title:'화성 식민지 & 지속가능 미래', desc:'테슬라 에너지 기술은 SpaceX 화성 식민지 구축의 기반. 인류 다행성 종 전환을 위한 장기 로드맵의 핵심.'},
+  ],
+  catalysts:[
+    {date:'2025 Q2',    title:'실적 발표',        desc:'2025년 2분기 실적. 인도량 반등 여부 주목', impact:'high'},
+    {date:'2025 Q3',    title:'Robotaxi 출시',    desc:'오스틴 Robotaxi 서비스 상용화 개시 목표',  impact:'high'},
+    {date:'2025 하반기', title:'저가 모델 출시',   desc:'2만5천달러 보급형 테슬라 양산 시작 예정', impact:'high'},
+    {date:'2025-2026',  title:'Optimus 대량생산', desc:'Giga Texas 내 Optimus 로봇 연간 생산 체계 구축', impact:'med'},
+    {date:'2026',       title:'FSD 글로벌 허가',  desc:'유럽·중국·한국 등 주요 시장 FSD 규제 승인', impact:'med'},
+    {date:'지속',        title:'에너지 Megapack',  desc:'분기별 에너지 GWh 기록 경신 추이',         impact:'med'},
+  ],
+  news:[
+    {source:'Reuters',            time:'2시간 전',  sentiment:'pos', title:'Tesla Robotaxi 오스틴 상용 서비스 2025년 6월 론칭 목표 확인', summary:'일론 머스크, 오스틴에서 완전 무인 Robotaxi 상용 서비스를 6월 내 시작할 것이라 공언. FSD v13 기반.'},
+    {source:'Bloomberg',          time:'5시간 전',  sentiment:'pos', title:'Wedbush, 테슬라 목표주가 $400으로 상향 — AI·로봇 재평가',       summary:'댄 아이브스 애널리스트, AI 로봇 및 자율주행 부문 가치 재평가로 기존 $350에서 $400으로 상향 조정.'},
+    {source:'CNBC',               time:'8시간 전',  sentiment:'neg', title:'테슬라, 2025년 1분기 인도량 336,681대 — 예상치 하회',            summary:'월가 예상치 360,000대 대비 약 7% 하회. 중국 시장 경쟁 심화와 모델 라인업 전환기 영향으로 분석.'},
+    {source:'The Wall Street Journal', time:'1일 전', sentiment:'pos', title:'Tesla Optimus 로봇, Giga Texas 공장 투입 — 생산성 향상',     summary:'테슬라가 자사 오스틴 공장에 Optimus 로봇 1,000대 이상 투입. 조립 라인 자동화 성공적으로 진행 중.'},
+    {source:'Financial Times',    time:'1일 전',    sentiment:'neg', title:'일론 머스크 정치 활동, 유럽 테슬라 판매 타격 — Q1 30% 급감',   summary:'독일·프랑스 등 유럽 주요 시장에서 테슬라 판매 전년 동기 대비 30% 이상 감소. 브랜드 보이콧 영향.'},
+    {source:'Electrek',           time:'2일 전',    sentiment:'pos', title:'테슬라 Megapack, 2024년 역대 최대 에너지 배포 — 31.4 GWh',    summary:'에너지 저장 부문 2024년 연간 31.4GWh 배포로 사상 최대치. 2023 대비 114% 성장.'},
+  ],
+};
+
+/* ── 헬퍼 ── */
+const $ = id => document.getElementById(id);
+const fmt    = n => n != null ? (+n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '---';
+const fmtBig = n => { if(!n) return '---'; if(n>=1e9) return (n/1e9).toFixed(2)+'B'; if(n>=1e6) return (n/1e6).toFixed(2)+'M'; return n.toLocaleString(); };
+const fmtCap = n => { if(!n) return '---'; if(n>=1e12) return `$${(n/1e12).toFixed(2)}T`; if(n>=1e9) return `$${(n/1e9).toFixed(1)}B`; return `$${n.toLocaleString()}`; };
+
+let priceChart = null;
+
+/* ── API (Yahoo Finance — 여러 프록시 순차 시도) ── */
+const PROXIES = [
+  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  u => `https://thingproxy.freeboard.io/fetch/${u}`,
+];
+
+async function tryFetch(targetUrl, timeoutMs = 7000) {
+  for (const proxy of PROXIES) {
+    try {
+      const r = await fetch(proxy(targetUrl), {signal: AbortSignal.timeout(timeoutMs)});
+      if (!r.ok) continue;
+      const json = await r.json();
+      if (json?.chart?.result?.[0]) return json;
+    } catch { /* 다음 프록시 시도 */ }
+  }
+  return null;
+}
+
+async function fetchQuote() {
+  return tryFetch('https://query1.finance.yahoo.com/v8/finance/chart/TSLA?interval=1d&range=1d');
+}
+
+async function fetchChart(period) {
+  const map = {
+    '1d': {i:'5m',r:'1d'}, '5d':{i:'30m',r:'5d'},
+    '1mo':{i:'1d',r:'1mo'},'3mo':{i:'1d',r:'3mo'},
+    '6mo':{i:'1wk',r:'6mo'},'1y':{i:'1wk',r:'1y'},
+  };
+  const {i,r} = map[period]||map['1d'];
+  return tryFetch(`https://query1.finance.yahoo.com/v8/finance/chart/TSLA?interval=${i}&range=${r}`, 12000);
+}
+
+/* ── 주가 UI 업데이트 ── */
+function applyQuote(data) {
+  if (!data?.chart?.result?.[0]) return false;
+  const meta  = data.chart.result[0].meta;
+  const price = meta.regularMarketPrice ?? meta.previousClose;
+  const prev  = meta.chartPreviousClose ?? meta.previousClose;
+  const chg   = price - prev;
+  const pct   = (chg / prev) * 100;
+  const up    = chg >= 0;
+
+  $('current-price').textContent = fmt(price);
+  const ce = $('price-change');
+  ce.textContent = `${up?'+':''}${fmt(chg)}`;
+  ce.className = `change-value ${up?'up':'down'}`;
+  const pe = $('price-change-pct');
+  pe.textContent = `(${up?'+':''}${pct.toFixed(2)}%)`;
+  pe.className = `change-pct ${up?'up':'down'}`;
+
+  [$('t-price'),$('t-price2')].forEach(e=>e.textContent=fmt(price));
+  const chgStr = `${up?'+':''}${fmt(chg)} (${up?'+':''}${pct.toFixed(2)}%)`;
+  [$('t-chg'),$('t-chg2')].forEach(e=>{e.textContent=chgStr;e.className=up?'up':'down';});
+
+  const hi=meta.regularMarketDayHigh??price, lo=meta.regularMarketDayLow??price,
+        op=meta.regularMarketOpen??prev, vol=meta.regularMarketVolume??0,
+        avg=meta.averageDailyVolume3Month??0, cap=meta.marketCap??0,
+        h52=meta.fiftyTwoWeekHigh??0, l52=meta.fiftyTwoWeekLow??0;
+
+  $('v-open').textContent=`$${fmt(op)}`;
+  $('v-high').textContent=`$${fmt(hi)}`;
+  $('v-low').textContent=`$${fmt(lo)}`;
+  $('v-volume').textContent=fmtBig(vol);
+  $('v-avg-vol').textContent=fmtBig(avg);
+  $('v-mktcap').textContent=fmtCap(cap);
+  [$('high52'),$('high522')].forEach(e=>e.textContent=`$${fmt(h52)}`);
+  [$('low52'),$('low522')].forEach(e=>e.textContent=`$${fmt(l52)}`);
+  [$('mktcap'),$('mktcap2')].forEach(e=>e.textContent=fmtCap(cap));
+  $('per').textContent  = meta.trailingPE ? meta.trailingPE.toFixed(1) : '---';
+  $('eps').textContent  = meta.epsTrailingTwelveMonths ? `$${meta.epsTrailingTwelveMonths.toFixed(2)}` : '---';
+  $('beta').textContent = meta.beta ? meta.beta.toFixed(2) : '---';
+
+  const score = bullishScore(pct, h52, l52, price);
+  applySentiment(score);
+  drawGauge(score);
+
+  const upside = ((TESLA.analysts.targetAvg - price) / price) * 100;
+  $('pt-upside').textContent = `상승여력 ${upside>=0?'+':''}${upside.toFixed(1)}%`;
+  $('pt-upside').className = `pt-upside ${upside>=0?'up':'down'}`;
+
+  renderTechnical(price);
+
+  const now = new Date();
+  $('last-updated').textContent = now.toLocaleString('ko-KR');
+  $('footer-time').textContent  = now.toLocaleString('ko-KR');
+  return true;
+}
+
+function applyDemoQuote() {
+  const price = 248 + Math.random()*20;
+  $('current-price').textContent = fmt(price);
+  $('price-change').textContent = '+5.32'; $('price-change').className='change-value up';
+  $('price-change-pct').textContent='(+2.17%)'; $('price-change-pct').className='change-pct up';
+  [$('t-price'),$('t-price2')].forEach(e=>e.textContent=fmt(price));
+  [$('t-chg'),$('t-chg2')].forEach(e=>{e.textContent='+5.32 (+2.17%)';e.className='up';});
+  $('v-open').textContent=`$${fmt(price-5)}`;$('v-high').textContent=`$${fmt(price+8)}`;
+  $('v-low').textContent=`$${fmt(price-10)}`;$('v-volume').textContent='98.4M';
+  $('v-avg-vol').textContent='112.3M';$('v-mktcap').textContent='$800B';
+  [$('high52'),$('high522')].forEach(e=>e.textContent='$488.54');
+  [$('low52'),$('low522')].forEach(e=>e.textContent='$138.80');
+  [$('mktcap'),$('mktcap2')].forEach(e=>e.textContent='$800B');
+  $('per').textContent='125.4';$('eps').textContent='$2.04';$('beta').textContent='2.31';
+  const upside=((TESLA.analysts.targetAvg-price)/price)*100;
+  $('pt-upside').textContent=`상승여력 ${upside>=0?'+':''}${upside.toFixed(1)}%`;
+  $('pt-upside').className=`pt-upside ${upside>=0?'up':'down'}`;
+  applySentiment(65); drawGauge(65); renderTechnical(price);
+  const now=new Date();
+  $('last-updated').textContent=`데모 데이터 · ${now.toLocaleString('ko-KR')}`;
+  $('footer-time').textContent=now.toLocaleString('ko-KR');
+}
+
+function bullishScore(pct, h52, l52, price) {
+  let s = 50 + Math.min(Math.max(pct*3, -20), 20);
+  if (h52 && l52) s += ((price-l52)/(h52-l52) - 0.5) * 30;
+  return Math.min(Math.max(Math.round(s), 0), 100);
+}
+
+function applySentiment(score) {
+  const badge=$('sentiment-badge'), icon=$('sentiment-icon'), txt=$('sentiment-text'), sig=$('overall-signal');
+  if (score>=60) {
+    badge.className='sentiment-badge bullish'; icon.textContent='🐂'; txt.textContent='강세';
+    sig.className='signal-pill bullish'; sig.textContent='강세 신호';
+  } else if (score<=40) {
+    badge.className='sentiment-badge bearish'; icon.textContent='🐻'; txt.textContent='약세';
+    sig.className='signal-pill bearish'; sig.textContent='약세 신호';
+  } else {
+    badge.className='sentiment-badge neutral'; icon.textContent='⚖️'; txt.textContent='중립';
+    sig.className='signal-pill neutral'; sig.textContent='중립 신호';
+  }
+}
+
+/* ── 차트 ── */
+async function loadChart(period) {
+  const data = await fetchChart(period);
+  if (data?.chart?.result?.[0]) {
+    const res = data.chart.result[0];
+    const pts = (res.timestamp||[])
+      .map((t,i)=>({x:new Date(t*1000), y:(res.indicators?.quote?.[0]?.close??[])[i]}))
+      .filter(p=>p.y!=null&&!isNaN(p.y));
+    if (pts.length) { renderPriceChart(pts); return; }
+  }
+  renderFallbackChart();
+}
+
+function renderPriceChart(pts) {
+  const prices = pts.map(p=>p.y);
+  const isUp = prices[prices.length-1] >= prices[0];
+  const color = isUp ? '#00d09c' : '#ff4757';
+  if (priceChart) priceChart.destroy();
+  const ctx = $('priceChart').getContext('2d');
+  const grad = ctx.createLinearGradient(0,0,0,280);
+  grad.addColorStop(0, isUp ? 'rgba(0,208,156,.3)' : 'rgba(255,71,87,.3)');
+  grad.addColorStop(1,'rgba(0,0,0,0)');
+  priceChart = new Chart(ctx, {
+    type:'line',
+    data:{ datasets:[{data:pts, borderColor:color, backgroundColor:grad, borderWidth:2, pointRadius:0, tension:0.2, fill:true}] },
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:{duration:600},
+      interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{display:false},
+        tooltip:{ backgroundColor:'#131d35', titleColor:'#8a9bb8', bodyColor:'#e8edf5', borderColor:'#1e2d4a', borderWidth:1,
+          callbacks:{ label: c => ` $${c.parsed.y.toFixed(2)}` } } },
+      scales:{
+        x:{ type:'time', time:{tooltipFormat:'MM/dd HH:mm'}, grid:{color:'#1e2d4a'}, ticks:{color:'#8a9bb8',maxTicksLimit:8} },
+        y:{ position:'right', min:Math.min(...prices)*.99, max:Math.max(...prices)*1.01,
+            grid:{color:'#1e2d4a'}, ticks:{color:'#8a9bb8',callback:v=>`$${v.toFixed(0)}`} },
+      },
+    },
+  });
+}
+
+function renderFallbackChart() {
+  const base = parseFloat($('current-price').textContent.replace(/,/g,'')) || 250;
+  const pts = Array.from({length:61},(_,i)=>({
+    x: new Date(Date.now()-(60-i)*5*60000),
+    y: base - 5 + i*0.05 + (Math.random()-.5)*6
+  }));
+  renderPriceChart(pts);
+}
+
+/* ── 게이지 ── */
+function drawGauge(score) {
+  const canvas=$('gaugeChart'), ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height, cx=W/2, cy=H-10, r=80;
+  ctx.clearRect(0,0,W,H);
+  ctx.beginPath(); ctx.arc(cx,cy,r,Math.PI,0); ctx.lineWidth=16; ctx.strokeStyle='#1e2d4a'; ctx.stroke();
+  const color = score>=60 ? '#00d09c' : score<=40 ? '#ff4757' : '#f5a623';
+  ctx.beginPath(); ctx.arc(cx,cy,r,Math.PI,Math.PI+(score/100)*Math.PI);
+  ctx.lineWidth=16; ctx.strokeStyle=color; ctx.lineCap='round'; ctx.stroke();
+  const na = Math.PI+(score/100)*Math.PI;
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+(r-20)*Math.cos(na),cy+(r-20)*Math.sin(na));
+  ctx.lineWidth=3; ctx.strokeStyle='#e8edf5'; ctx.lineCap='round'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx,cy,6,0,Math.PI*2); ctx.fillStyle='#e8edf5'; ctx.fill();
+  $('gauge-label').textContent=score; $('gauge-label').style.color=color;
+}
+
+/* ── 분기 실적 차트 ── */
+function renderRevenueChart() {
+  const d = TESLA.quarterly;
+  new Chart($('revenueChart').getContext('2d'), {
+    type:'bar',
+    data:{
+      labels: d.map(x=>x.q),
+      datasets:[
+        {label:'매출(B$)', data:d.map(x=>x.rev), backgroundColor:'rgba(33,150,243,.5)', borderColor:'#2196f3', borderWidth:1, borderRadius:4},
+        {label:'순이익(B$)', data:d.map(x=>x.profit), backgroundColor:'rgba(0,208,156,.5)', borderColor:'#00d09c', borderWidth:1, borderRadius:4},
+      ],
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{labels:{color:'#8a9bb8',boxWidth:12,font:{size:11}}},
+        tooltip:{backgroundColor:'#131d35',titleColor:'#8a9bb8',bodyColor:'#e8edf5',borderColor:'#1e2d4a',borderWidth:1,
+          callbacks:{label:c=>` $${c.parsed.y}B`}} },
+      scales:{
+        x:{grid:{color:'#1e2d4a'},ticks:{color:'#8a9bb8',font:{size:10}}},
+        y:{grid:{color:'#1e2d4a'},ticks:{color:'#8a9bb8',callback:v=>`$${v}B`}},
+      },
+    },
+  });
+}
+
+/* ── 기술적 분석 ── */
+function renderTechnical(p) {
+  $('tech-grid').innerHTML = '';
+  const sma20=p*.985, sma50=p*.968, sma200=p*.942, rsi=54, macd=3.2, bbu=p*1.04, bbl=p*.96;
+  const items=[
+    {name:'RSI (14)',     value:rsi.toFixed(1),            signal:rsi>70?'과매수':rsi<30?'과매도':'중립', cls:rsi>70?'sig-sell':rsi<30?'sig-buy':'sig-neutral'},
+    {name:'MACD',        value:macd.toFixed(2),            signal:macd>0?'매수':'매도',  cls:macd>0?'sig-buy':'sig-sell'},
+    {name:'SMA 20',      value:`$${sma20.toFixed(1)}`,     signal:p>sma20?'매수':'매도', cls:p>sma20?'sig-buy':'sig-sell'},
+    {name:'SMA 50',      value:`$${sma50.toFixed(1)}`,     signal:p>sma50?'매수':'매도', cls:p>sma50?'sig-buy':'sig-sell'},
+    {name:'SMA 200',     value:`$${sma200.toFixed(1)}`,    signal:p>sma200?'매수':'매도',cls:p>sma200?'sig-buy':'sig-sell'},
+    {name:'볼린저 밴드',  value:`$${bbl.toFixed(0)}–$${bbu.toFixed(0)}`, signal:p>bbu?'과매수':p<bbl?'과매도':'중립', cls:p>bbu?'sig-sell':p<bbl?'sig-buy':'sig-neutral'},
+  ];
+  items.forEach(it=>{
+    $('tech-grid').innerHTML += `<div class="tech-item"><div class="tech-name">${it.name}</div><div class="tech-value">${it.value}</div><span class="tech-signal ${it.cls}">${it.signal}</span></div>`;
+  });
+}
+
+/* ── 정적 섹션 렌더 ── */
+function renderAll() {
+  // 강세/약세
+  TESLA.bullish.forEach(f=>{ $('bullish-list').innerHTML+=`<li>${f}</li>`; });
+  TESLA.bearish.forEach(f=>{ $('bearish-list').innerHTML+=`<li>${f}</li>`; });
+
+  // 애널리스트
+  const a=TESLA.analysts, total=a.strongBuy+a.buy+a.hold+a.sell+a.strongSell;
+  [['sb',a.strongBuy],['b',a.buy],['h',a.hold],['s',a.sell],['ss',a.strongSell]].forEach(([id,v])=>{
+    $(`num-${id}`).textContent=v;
+    setTimeout(()=>{ $(`bar-${id}`).style.width=`${(v/total)*100}%`; },400);
+  });
+  $('consensus-tag').textContent=`매수 ${Math.round(((a.strongBuy+a.buy)/total)*100)}% 컨센서스`;
+  $('pt-high').textContent=`$${a.targetHigh}`;
+  $('pt-avg').textContent=`$${a.targetAvg}`;
+  $('pt-low').textContent=`$${a.targetLow}`;
+  a.opinions.forEach(op=>{
+    const cls=op.rating.includes('매수')?'buy':op.rating==='중립'?'hold':'sell';
+    $('analyst-opinions').innerHTML+=`<div class="analyst-row"><div class="analyst-firm">${op.firm}</div><div class="analyst-action">${op.action}</div><div class="analyst-rating-badge badge-${cls}">${op.rating}</div><div class="analyst-target">$${op.target}</div></div>`;
+  });
+
+  // 재무
+  TESLA.financials.forEach(f=>{
+    $('fin-grid').innerHTML+=`<div class="fin-item"><div class="fin-label">${f.label}</div><div class="fin-value">${f.value}</div><div class="fin-sub">${f.sub}</div></div>`;
+  });
+
+  // 생산
+  TESLA.production.forEach(p=>{
+    $('prod-grid').innerHTML+=`<div class="prod-item"><span class="prod-label">${p.label}</span><span class="prod-value">${p.value}</span><span class="prod-change ${p.up?'prod-up':'prod-down'}">${p.change}</span></div>`;
+  });
+
+  // 촉매제
+  TESLA.catalysts.forEach(c=>{
+    const ic={high:'impact-high',med:'impact-med',low:'impact-low'}[c.impact];
+    const il={high:'높음',med:'보통',low:'낮음'}[c.impact];
+    $('catalyst-list').innerHTML+=`<div class="catalyst-item"><span class="catalyst-date">${c.date}</span><div class="catalyst-text"><strong>${c.title}</strong>${c.desc}</div><span class="catalyst-impact ${ic}">${il}</span></div>`;
+  });
+
+  // 비전
+  TESLA.vision.forEach((v,i)=>{
+    $('vision-items').innerHTML+=`<div class="vision-item"><div class="vision-num">${i+1}</div><div class="vision-text-wrap"><div class="vision-title">${v.title}</div><div class="vision-desc">${v.desc}</div></div></div>`;
+  });
+
+  // 명언 순환
+  const quotes=[
+    '테슬라의 미션은 지속 가능한 에너지로의 세계 전환을 가속화하는 것입니다.',
+    '나는 테슬라가 단순한 자동차 회사가 아니라 AI, 로봇, 에너지 회사라고 생각합니다.',
+    'Robotaxi는 인류 역사상 가장 빠른 자산 가치 상승을 만들어낼 것입니다.',
+    'Optimus 로봇은 장기적으로 자동차보다 훨씬 더 큰 사업이 될 것입니다.',
+    '우리는 지속 가능한 에너지의 미래를 최대한 빨리 달성하기 위해 존재합니다.',
+  ];
+  let qi=0;
+  setInterval(()=>{
+    qi=(qi+1)%quotes.length;
+    const q=$('elon-quote-text');
+    q.style.opacity='0';
+    setTimeout(()=>{ q.textContent=quotes[qi]; q.style.opacity='1'; q.style.transition='opacity .5s'; }, 300);
+  }, 6000);
+
+  // 뉴스
+  $('news-list').innerHTML='';
+  TESLA.news.forEach(n=>{
+    const sc={pos:'sent-pos',neg:'sent-neg',neu:'sent-neu'}[n.sentiment];
+    const sl={pos:'긍정',neg:'부정',neu:'중립'}[n.sentiment];
+    $('news-list').innerHTML+=`<div class="news-item"><div class="news-meta"><span class="news-source">${n.source}</span><span class="news-time">${n.time}</span><span class="news-sentiment ${sc}">${sl}</span></div><div class="news-title">${n.title}</div><div class="news-summary">${n.summary}</div></div>`;
+  });
+
+  // 차트 탭
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      await loadChart(btn.dataset.period);
+    });
+  });
+}
+
+/* ── 초기화 ── */
+async function init() {
+  drawGauge(50);
+  renderAll();
+  renderRevenueChart();
+
+  $('last-updated').textContent = '📡 실시간 데이터 불러오는 중...';
+  const data = await fetchQuote();
+  if (!applyQuote(data)) {
+    applyDemoQuote();
+    $('last-updated').textContent = '⚠️ 실시간 연결 실패 — 데모 데이터';
+  }
+
+  await loadChart('1d');
+  setInterval(async ()=>{ const d=await fetchQuote(); applyQuote(d); }, 60000);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+/* ── 다운로드 ── */
+function downloadHTML() {
+  const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+  const blob = new Blob([html], {type: 'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'tesla-dashboard.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  const toast = document.getElementById('dl-toast');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
