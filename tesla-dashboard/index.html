@@ -551,16 +551,28 @@ const fmtCap = n => { if(!n) return '---'; if(n>=1e12) return `$${(n/1e12).toFix
 
 let priceChart = null;
 
-/* ── API (Yahoo Finance via CORS proxy) ── */
-const PROXY = 'https://corsproxy.io/?url=';
+/* ── API (Yahoo Finance — 여러 프록시 순차 시도) ── */
+const PROXIES = [
+  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  u => `https://thingproxy.freeboard.io/fetch/${u}`,
+];
+
+async function tryFetch(targetUrl, timeoutMs = 7000) {
+  for (const proxy of PROXIES) {
+    try {
+      const r = await fetch(proxy(targetUrl), {signal: AbortSignal.timeout(timeoutMs)});
+      if (!r.ok) continue;
+      const json = await r.json();
+      if (json?.chart?.result?.[0]) return json;
+    } catch { /* 다음 프록시 시도 */ }
+  }
+  return null;
+}
 
 async function fetchQuote() {
-  const url = 'https://query1.finance.yahoo.com/v8/finance/chart/TSLA?interval=1d&range=1d';
-  try {
-    const r = await fetch(PROXY + encodeURIComponent(url), {signal: AbortSignal.timeout(8000)});
-    if (!r.ok) throw 0;
-    return await r.json();
-  } catch { return null; }
+  return tryFetch('https://query1.finance.yahoo.com/v8/finance/chart/TSLA?interval=1d&range=1d');
 }
 
 async function fetchChart(period) {
@@ -570,12 +582,7 @@ async function fetchChart(period) {
     '6mo':{i:'1wk',r:'6mo'},'1y':{i:'1wk',r:'1y'},
   };
   const {i,r} = map[period]||map['1d'];
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/TSLA?interval=${i}&range=${r}`;
-  try {
-    const res = await fetch(PROXY + encodeURIComponent(url), {signal: AbortSignal.timeout(10000)});
-    if (!res.ok) throw 0;
-    return await res.json();
-  } catch { return null; }
+  return tryFetch(`https://query1.finance.yahoo.com/v8/finance/chart/TSLA?interval=${i}&range=${r}`, 12000);
 }
 
 /* ── 주가 UI 업데이트 ── */
@@ -867,8 +874,12 @@ async function init() {
   renderAll();
   renderRevenueChart();
 
+  $('last-updated').textContent = '📡 실시간 데이터 불러오는 중...';
   const data = await fetchQuote();
-  if (!applyQuote(data)) applyDemoQuote();
+  if (!applyQuote(data)) {
+    applyDemoQuote();
+    $('last-updated').textContent = '⚠️ 실시간 연결 실패 — 데모 데이터';
+  }
 
   await loadChart('1d');
   setInterval(async ()=>{ const d=await fetchQuote(); applyQuote(d); }, 60000);
