@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TSLA 테슬라 종합 분석 대시보드</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+</head>
+<body>
+  <!-- ── HEADER ── -->
+  <header class="header">
+    <div class="header-left">
+      <div class="tesla-logo">
+        <svg viewBox="0 0 342 35" fill="none" xmlns="http://www.w3.org/2000/svg" width="120">
+          <path d="M0 .1a9.7 9.7 0 0 0 7 7h11l.5.1v27.6h6.8V7.3L26 7h11a9.8 9.8 0 0 0 7-7H0zm238.6 0h-6.8v34.8H256a9.8 9.8 0 0 0 7-7h-24.4V0zm-52.3 6.8c3.6-1 6.6-3.8 7.4-6.9l-38.1.1v7h30.3l-31.2 21.5v6.7h38.2a9.8 9.8 0 0 0 7.1-7h-31.2l17.5-21.4zM87.5 0L64.4 34.8h8l5.1-7.6h22.2l5 7.6h8.3L89.2 0h-1.7zm-5.4 20.6 7.3-11 7.2 11H82zm88.1-9.5v-4.7l-.3-6.4h-6.8v34.8h6.8V15.6c0-4.4 3.8-8.8 9.8-8.8h6.7a9.8 9.8 0 0 0 7-7h-13.7c-5.5 0-9.5 4.2-9.5 11.3z" fill="#E31937"/>
+        </svg>
+        <span class="tsla-badge">TSLA</span>
+      </div>
+      <div class="header-title">
+        <h1>Tesla 종합 분석 대시보드</h1>
+        <p class="subtitle">NASDAQ: TSLA · 실시간 분석 · <span id="last-updated">로딩 중...</span></p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="price-main">
+        <div class="price-display">
+          <span id="current-price" class="price-number">---.--</span>
+          <span class="currency">USD</span>
+        </div>
+        <div class="price-change-display">
+          <span id="price-change" class="change-value">+0.00</span>
+          <span id="price-change-pct" class="change-pct">(+0.00%)</span>
+        </div>
+      </div>
+      <div class="sentiment-badge" id="sentiment-badge">
+        <span class="sentiment-icon" id="sentiment-icon">📊</span>
+        <span id="sentiment-text">분석 중</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── TICKER BAR ── -->
+  <div class="ticker-bar">
+    <div class="ticker-wrap">
+      <div class="ticker-move" id="ticker-move">
+        <span class="ticker-item">TSLA <strong id="t-price">---</strong> <span id="t-chg" class="up">---</span></span>
+        <span class="ticker-item">S&P500 <strong id="sp-price">---</strong> <span class="neutral">---</span></span>
+        <span class="ticker-item">NASDAQ <strong id="nq-price">---</strong> <span class="neutral">---</span></span>
+        <span class="ticker-item">시가총액 <strong id="mktcap">---</strong></span>
+        <span class="ticker-item">52주 최고 <strong id="high52">---</strong></span>
+        <span class="ticker-item">52주 최저 <strong id="low52">---</strong></span>
+        <span class="ticker-item">PER <strong id="per">---</strong></span>
+        <span class="ticker-item">EPS <strong id="eps">---</strong></span>
+        <span class="ticker-item">배당수익률 <strong>0.00%</strong></span>
+        <span class="ticker-item">베타 <strong id="beta">---</strong></span>
+        <span class="ticker-item">TSLA <strong id="t-price2">---</strong> <span id="t-chg2" class="up">---</span></span>
+        <span class="ticker-item">S&P500 <strong>---</strong></span>
+        <span class="ticker-item">NASDAQ <strong>---</strong></span>
+        <span class="ticker-item">시가총액 <strong id="mktcap2">---</strong></span>
+        <span class="ticker-item">52주 최고 <strong id="high522">---</strong></span>
+        <span class="ticker-item">52주 최저 <strong id="low522">---</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MAIN GRID ── -->
+  <main class="main-grid">
+
+    <!-- ── LEFT COLUMN ── -->
+    <div class="col-left">
+
+      <!-- KEY METRICS ROW -->
+      <section class="metrics-row">
+        <div class="metric-card" id="mc-open">
+          <div class="metric-label">시가</div>
+          <div class="metric-value" id="v-open">---</div>
+        </div>
+        <div class="metric-card" id="mc-high">
+          <div class="metric-label">고가</div>
+          <div class="metric-value up" id="v-high">---</div>
+        </div>
+        <div class="metric-card" id="mc-low">
+          <div class="metric-label">저가</div>
+          <div class="metric-value down" id="v-low">---</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">거래량</div>
+          <div class="metric-value" id="v-volume">---</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">평균거래량</div>
+          <div class="metric-value" id="v-avg-vol">---</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">시가총액</div>
+          <div class="metric-value" id="v-mktcap">---</div>
+        </div>
+      </section>
+
+      <!-- PRICE CHART -->
+      <section class="card chart-card">
+        <div class="card-header">
+          <h2>📈 주가 차트</h2>
+          <div class="chart-tabs">
+            <button class="tab-btn active" data-period="1d">1일</button>
+            <button class="tab-btn" data-period="5d">5일</button>
+            <button class="tab-btn" data-period="1mo">1개월</button>
+            <button class="tab-btn" data-period="3mo">3개월</button>
+            <button class="tab-btn" data-period="6mo">6개월</button>
+            <button class="tab-btn" data-period="1y">1년</button>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas id="priceChart"></canvas>
+        </div>
+      </section>
+
+      <!-- BULLISH / BEARISH ANALYSIS -->
+      <section class="card sentiment-card">
+        <div class="card-header">
+          <h2>⚡ 강세 / 약세 분석</h2>
+          <div id="overall-signal" class="signal-pill">분석 중</div>
+        </div>
+        <div class="sentiment-grid">
+          <div class="sentiment-col bullish-col">
+            <h3 class="bullish-title">🐂 강세 요인</h3>
+            <ul id="bullish-list" class="factor-list"></ul>
+          </div>
+          <div class="sentiment-divider">
+            <div class="gauge-wrap">
+              <canvas id="gaugeChart" width="200" height="120"></canvas>
+              <div class="gauge-label" id="gauge-label">50</div>
+              <div class="gauge-sub">강세 점수</div>
+            </div>
+          </div>
+          <div class="sentiment-col bearish-col">
+            <h3 class="bearish-title">🐻 약세 요인</h3>
+            <ul id="bearish-list" class="factor-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ANALYST RATINGS -->
+      <section class="card analyst-card">
+        <div class="card-header">
+          <h2>🏦 애널리스트 의견</h2>
+          <span class="consensus-tag" id="consensus-tag">컨센서스 로딩 중</span>
+        </div>
+        <div class="analyst-grid">
+          <div class="rating-bar-section">
+            <div class="rating-row">
+              <span class="rating-label strong-buy">강력 매수</span>
+              <div class="rating-bar-wrap"><div class="rating-bar sb-bar" id="bar-sb"></div></div>
+              <span class="rating-num" id="num-sb">-</span>
+            </div>
+            <div class="rating-row">
+              <span class="rating-label buy">매수</span>
+              <div class="rating-bar-wrap"><div class="rating-bar b-bar" id="bar-b"></div></div>
+              <span class="rating-num" id="num-b">-</span>
+            </div>
+            <div class="rating-row">
+              <span class="rating-label hold">중립</span>
+              <div class="rating-bar-wrap"><div class="rating-bar h-bar" id="bar-h"></div></div>
+              <span class="rating-num" id="num-h">-</span>
+            </div>
+            <div class="rating-row">
+              <span class="rating-label sell">매도</span>
+              <div class="rating-bar-wrap"><div class="rating-bar s-bar" id="bar-s"></div></div>
+              <span class="rating-num" id="num-s">-</span>
+            </div>
+            <div class="rating-row">
+              <span class="rating-label strong-sell">강력 매도</span>
+              <div class="rating-bar-wrap"><div class="rating-bar ss-bar" id="bar-ss"></div></div>
+              <span class="rating-num" id="num-ss">-</span>
+            </div>
+          </div>
+          <div class="price-target-section">
+            <div class="pt-title">목표주가</div>
+            <div class="pt-high"><span class="pt-lbl">최고</span><span class="pt-val up" id="pt-high">$---</span></div>
+            <div class="pt-avg"><span class="pt-lbl">평균</span><span class="pt-val" id="pt-avg">$---</span></div>
+            <div class="pt-low"><span class="pt-lbl">최저</span><span class="pt-val down" id="pt-low">$---</span></div>
+            <div class="pt-upside" id="pt-upside">상승여력 ---</div>
+          </div>
+        </div>
+        <div class="analyst-opinions" id="analyst-opinions"></div>
+      </section>
+
+      <!-- TECHNICAL ANALYSIS -->
+      <section class="card tech-card">
+        <div class="card-header"><h2>📊 기술적 분석</h2></div>
+        <div class="tech-grid" id="tech-grid"></div>
+      </section>
+
+    </div>
+
+    <!-- ── RIGHT COLUMN ── -->
+    <div class="col-right">
+
+      <!-- COMPANY OVERVIEW -->
+      <section class="card company-card">
+        <div class="card-header"><h2>🏢 테슬라란?</h2></div>
+        <div class="company-content">
+          <div class="company-logo-wrap">
+            <svg viewBox="0 0 342 35" fill="none" width="100" xmlns="http://www.w3.org/2000/svg">
+              <path d="M0 .1a9.7 9.7 0 0 0 7 7h11l.5.1v27.6h6.8V7.3L26 7h11a9.8 9.8 0 0 0 7-7H0zm238.6 0h-6.8v34.8H256a9.8 9.8 0 0 0 7-7h-24.4V0zm-52.3 6.8c3.6-1 6.6-3.8 7.4-6.9l-38.1.1v7h30.3l-31.2 21.5v6.7h38.2a9.8 9.8 0 0 0 7.1-7h-31.2l17.5-21.4zM87.5 0L64.4 34.8h8l5.1-7.6h22.2l5 7.6h8.3L89.2 0h-1.7zm-5.4 20.6 7.3-11 7.2 11H82zm88.1-9.5v-4.7l-.3-6.4h-6.8v34.8h6.8V15.6c0-4.4 3.8-8.8 9.8-8.8h6.7a9.8 9.8 0 0 0 7-7h-13.7c-5.5 0-9.5 4.2-9.5 11.3z" fill="#E31937"/>
+            </svg>
+          </div>
+          <p class="company-desc">테슬라(Tesla, Inc.)는 2003년 마틴 에버하드와 마크 타페닝이 창업하고, 2004년 일론 머스크가 합류하여 회장직을 맡은 미국의 전기차·에너지 기업입니다. 본사는 텍사스주 오스틴에 위치하며, 전기차 제조·판매, 에너지 생성·저장, 자율주행 기술 개발을 핵심 사업으로 합니다.</p>
+        </div>
+        <div class="biz-segments">
+          <div class="biz-item">
+            <div class="biz-icon">🚗</div>
+            <div class="biz-info">
+              <div class="biz-name">자동차 부문</div>
+              <div class="biz-desc">Model S·3·X·Y·Cybertruck·Semi 생산·판매, 소프트웨어 업데이트, FSD 판매</div>
+            </div>
+          </div>
+          <div class="biz-item">
+            <div class="biz-icon">⚡</div>
+            <div class="biz-info">
+              <div class="biz-name">에너지 부문</div>
+              <div class="biz-desc">Powerwall·Megapack 배터리 저장장치, Powerpack, 태양광 패널·Solar Roof 판매</div>
+            </div>
+          </div>
+          <div class="biz-item">
+            <div class="biz-icon">🤖</div>
+            <div class="biz-info">
+              <div class="biz-name">AI·로봇 부문</div>
+              <div class="biz-desc">Optimus 휴머노이드 로봇, Dojo 슈퍼컴퓨터, AI 칩 개발, FSD 뉴럴넷</div>
+            </div>
+          </div>
+          <div class="biz-item">
+            <div class="biz-icon">🔋</div>
+            <div class="biz-info">
+              <div class="biz-name">슈퍼차저 네트워크</div>
+              <div class="biz-desc">전 세계 6만+ 슈퍼차저 보유, 타사 차량 개방으로 수익 다각화</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ELON MUSK VISION -->
+      <section class="card vision-card">
+        <div class="card-header"><h2>🚀 일론 머스크의 비전</h2></div>
+        <div class="vision-content">
+          <div class="elon-quote">
+            <div class="quote-mark">"</div>
+            <p id="elon-quote-text">테슬라의 미션은 지속 가능한 에너지로의 세계 전환을 가속화하는 것입니다.</p>
+          </div>
+          <div class="vision-items" id="vision-items"></div>
+        </div>
+      </section>
+
+      <!-- UPCOMING CATALYSTS -->
+      <section class="card catalyst-card">
+        <div class="card-header"><h2>📅 주요 촉매제</h2></div>
+        <div id="catalyst-list" class="catalyst-list"></div>
+      </section>
+
+      <!-- FINANCIAL SNAPSHOT -->
+      <section class="card financials-card">
+        <div class="card-header"><h2>💰 주요 재무 지표</h2></div>
+        <div class="fin-grid" id="fin-grid"></div>
+      </section>
+
+      <!-- REVENUE CHART -->
+      <section class="card revenue-card">
+        <div class="card-header"><h2>📉 분기별 실적</h2></div>
+        <div class="chart-container small-chart">
+          <canvas id="revenueChart"></canvas>
+        </div>
+      </section>
+
+      <!-- PRODUCTION DATA -->
+      <section class="card production-card">
+        <div class="card-header"><h2>🏭 생산 & 인도 현황</h2></div>
+        <div class="prod-grid" id="prod-grid"></div>
+      </section>
+
+      <!-- NEWS FEED -->
+      <section class="card news-card">
+        <div class="card-header"><h2>📰 테슬라 최신 뉴스</h2></div>
+        <div class="news-list" id="news-list">
+          <div class="news-loading">뉴스 로딩 중...</div>
+        </div>
+        <div class="news-disclaimer">※ 실제 뉴스는 재무 데이터 API 연동 시 표시됩니다.</div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ── FOOTER ── -->
+  <footer class="footer">
+    <div class="footer-content">
+      <p>⚠️ 본 대시보드는 투자 참고용이며 투자 권유가 아닙니다. 데이터는 Yahoo Finance API 기반이며 지연이 발생할 수 있습니다.</p>
+      <p>데이터 출처: Yahoo Finance · 최종 업데이트: <span id="footer-time">---</span></p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
