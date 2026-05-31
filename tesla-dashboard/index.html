@@ -203,6 +203,47 @@ body { background: var(--bg-primary); color: var(--text-primary); font-family: '
 ::-webkit-scrollbar-track{background:var(--bg-primary);}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 ::-webkit-scrollbar-thumb:hover{background:#2a3d5a;}
+
+/* DOWNLOAD BUTTON */
+.dl-btn {
+  display:inline-flex; align-items:center; gap:7px;
+  background: linear-gradient(135deg, #E31937, #b8001e);
+  color:#fff; font-weight:700; font-size:13px;
+  padding:9px 18px; border-radius:24px; border:none;
+  cursor:pointer; white-space:nowrap;
+  box-shadow: 0 4px 15px rgba(227,25,55,.4);
+  transition: transform .15s, box-shadow .15s;
+  text-decoration:none;
+}
+.dl-btn:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(227,25,55,.55); }
+.dl-btn:active { transform:translateY(0); }
+.dl-btn svg { flex-shrink:0; }
+
+/* FLOATING DOWNLOAD (mobile) */
+.dl-float {
+  position:fixed; bottom:24px; right:20px; z-index:999;
+  display:flex; align-items:center; gap:8px;
+  background: linear-gradient(135deg, #E31937, #b8001e);
+  color:#fff; font-weight:700; font-size:15px;
+  padding:14px 22px; border-radius:50px; border:none;
+  cursor:pointer;
+  box-shadow: 0 6px 24px rgba(227,25,55,.55);
+  transition: transform .15s, box-shadow .15s;
+}
+.dl-float:hover { transform:translateY(-3px); box-shadow:0 10px 30px rgba(227,25,55,.65); }
+.dl-float:active { transform:scale(.96); }
+
+/* toast */
+#dl-toast {
+  position:fixed; bottom:90px; right:20px; z-index:1000;
+  background:#00d09c; color:#0a0e1a; font-weight:700; font-size:13px;
+  padding:10px 20px; border-radius:20px;
+  box-shadow:0 4px 16px rgba(0,208,156,.4);
+  opacity:0; transform:translateY(10px);
+  transition: opacity .3s, transform .3s;
+  pointer-events:none;
+}
+#dl-toast.show { opacity:1; transform:translateY(0); }
   </style>
 </head>
 <body>
@@ -236,6 +277,10 @@ body { background: var(--bg-primary); color: var(--text-primary); font-family: '
       <span class="sentiment-icon" id="sentiment-icon">📊</span>
       <span id="sentiment-text">분석 중</span>
     </div>
+    <button class="dl-btn" onclick="downloadHTML()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      HTML 다운로드
+    </button>
   </div>
 </header>
 
@@ -403,6 +448,13 @@ body { background: var(--bg-primary); color: var(--text-primary); font-family: '
     </section>
   </div>
 </main>
+
+<!-- 플로팅 다운로드 버튼 (모바일용) -->
+<button class="dl-float" onclick="downloadHTML()">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+  파일 저장
+</button>
+<div id="dl-toast">✅ 다운로드 시작!</div>
 
 <footer class="footer">
   <div class="footer-content">
@@ -822,6 +874,24 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+/* ── 다운로드 ── */
+function downloadHTML() {
+  const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+  const blob = new Blob([html], {type: 'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'tesla-dashboard.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  const toast = document.getElementById('dl-toast');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
 </script>
 </body>
 </html>
